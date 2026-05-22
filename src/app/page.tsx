@@ -6,11 +6,27 @@ export default function Home() {
   const [civicNumber, setCivicNumber] = useState('');
   const [streetName, setStreetName] = useState('');
   const [unitSize, setUnitSize] = useState('4.5');
+  const [loading, setLoading] = useState(false);
+  const [result, setResult] = useState<any>(null);
+  const [error, setError] = useState('');
 
   const handleSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    // In the next step, we will wire this up to our Supabase database and the /api/evaluate endpoint
-    console.log("User is searching for:", civicNumber, streetName, unitSize);
+    setLoading(true);
+    setError('');
+    setResult(null);
+
+    try {
+      const res = await fetch(`/api/evaluate?civicNumber=${civicNumber}&streetName=${streetName}&unitSize=${unitSize}`);
+      const data = await res.json();
+
+      if (!res.ok) throw new Error(data.error || 'Failed to fetch data');
+      setResult(data);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -25,35 +41,16 @@ export default function Home() {
           <div className="grid grid-cols-3 gap-4">
             <div className="col-span-1">
               <label className="block text-sm font-medium text-gray-700 mb-1">Civic Number</label>
-              <input 
-                type="text" 
-                className="w-full border border-gray-300 rounded-md p-2"
-                placeholder="1234"
-                value={civicNumber}
-                onChange={(e) => setCivicNumber(e.target.value)}
-                required
-              />
+              <input type="text" className="w-full border border-gray-300 rounded-md p-2" value={civicNumber} onChange={(e) => setCivicNumber(e.target.value)} required />
             </div>
             <div className="col-span-2">
               <label className="block text-sm font-medium text-gray-700 mb-1">Street Name</label>
-              <input 
-                type="text" 
-                className="w-full border border-gray-300 rounded-md p-2"
-                placeholder="Sainte-Catherine"
-                value={streetName}
-                onChange={(e) => setStreetName(e.target.value)}
-                required
-              />
+              <input type="text" className="w-full border border-gray-300 rounded-md p-2" value={streetName} onChange={(e) => setStreetName(e.target.value)} required />
             </div>
           </div>
-          
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Unit Size</label>
-            <select 
-              className="w-full border border-gray-300 rounded-md p-2 bg-white"
-              value={unitSize}
-              onChange={(e) => setUnitSize(e.target.value)}
-            >
+            <select className="w-full border border-gray-300 rounded-md p-2 bg-white" value={unitSize} onChange={(e) => setUnitSize(e.target.value)}>
               <option value="1.5">1 ½</option>
               <option value="2.5">2 ½</option>
               <option value="3.5">3 ½</option>
@@ -61,14 +58,28 @@ export default function Home() {
               <option value="5.5">5 ½+</option>
             </select>
           </div>
-
-          <button 
-            type="submit" 
-            className="w-full bg-black text-white rounded-md py-3 font-medium mt-4 hover:bg-gray-800 transition-colors"
-          >
-            Evaluate Market Rate
+          <button type="submit" disabled={loading} className="w-full bg-black text-white rounded-md py-3 font-medium mt-4 hover:bg-gray-800 disabled:opacity-50">
+            {loading ? 'Calculating...' : 'Evaluate Market Rate'}
           </button>
         </form>
+
+        {error && <div className="mt-6 p-4 bg-red-50 text-red-700 rounded-md border border-red-100">{error}</div>}
+
+        {result && (
+          <div className="mt-8 border-t pt-6 space-y-4">
+            <h3 className="text-xl font-bold">Evaluation Results</h3>
+            <div className="grid grid-cols-2 gap-4">
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-500">Municipal Assessment</p>
+                <p className="text-2xl font-bold">${result.property.assessmentValue?.toLocaleString()}</p>
+              </div>
+              <div className="p-4 bg-gray-50 rounded-lg">
+                <p className="text-sm text-gray-500">Regional Average ({result.marketMetrics.totalLocalComps} comps)</p>
+                <p className="text-2xl font-bold">${result.marketMetrics.regionalAverageRent}/mo</p>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </main>
   );
